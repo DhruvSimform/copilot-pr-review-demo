@@ -94,13 +94,12 @@ async def update_todo(todo_id: int, todo_update: TodoUpdate) -> TodoResponse:
         )
     
     todo = todos_db[todo_id]
-    
-    if todo_update.title is not None:
-        todo["title"] = todo_update.title
-    if todo_update.description is not None:
-        todo["description"] = todo_update.description
-    if todo_update.completed is not None:
-        todo["completed"] = todo_update.completed
+    update_data = (
+        todo_update.model_dump(exclude_unset=True)
+        if hasattr(todo_update, "model_dump")
+        else todo_update.dict(exclude_unset=True)
+    )
+    todo.update(update_data)
     
     return TodoResponse(
         id=todo_id,
