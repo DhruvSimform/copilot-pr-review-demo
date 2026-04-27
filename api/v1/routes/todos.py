@@ -69,13 +69,13 @@ async def create_todo(todo: TodoCreate) -> TodoResponse:
 @router.get("/{todo_id}", response_model=TodoResponse)
 async def get_todo(todo_id: str) -> TodoResponse:
     """Get a specific todo by ID."""
-    if todo_id not in todos_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Todo with id {todo_id} not found",
-        )
-    
-    todo = todos_db[todo_id]
+    async with _db_lock:
+        if todo_id not in todos_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Todo with id {todo_id} not found",
+            )
+        todo = todos_db[todo_id].copy()
     return TodoResponse(
         id=todo_id,
         title=todo["title"],
@@ -87,20 +87,19 @@ async def get_todo(todo_id: str) -> TodoResponse:
 @router.put("/{todo_id}", response_model=TodoResponse)
 async def update_todo(todo_id: str, todo_update: TodoUpdate) -> TodoResponse:
     """Update a specific todo."""
-    if todo_id not in todos_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Todo with id {todo_id} not found",
-        )
-
     update_data = (
         todo_update.model_dump(exclude_unset=True)
         if hasattr(todo_update, "model_dump")
         else todo_update.dict(exclude_unset=True)
     )
     async with _db_lock:
+        if todo_id not in todos_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Todo with id {todo_id} not found",
+            )
         todos_db[todo_id].update(update_data)
-        todo = todos_db[todo_id]
+        todo = todos_db[todo_id].copy()
 
     return TodoResponse(
         id=todo_id,
@@ -113,11 +112,10 @@ async def update_todo(todo_id: str, todo_update: TodoUpdate) -> TodoResponse:
 @router.delete("/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_todo(todo_id: str) -> None:
     """Delete a specific todo."""
-    if todo_id not in todos_db:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Todo with id {todo_id} not found",
-        )
-    
     async with _db_lock:
+        if todo_id not in todos_db:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Todo with id {todo_id} not found",
+            )
         del todos_db[todo_id]
